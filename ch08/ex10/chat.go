@@ -59,7 +59,7 @@ func handleConn(conn net.Conn) {
 	who := conn.RemoteAddr().String()
 	ch <- "You are " + who
 	messages <- who + " has arrived"
-	fmt.Println("enter:", ch)
+	fmt.Println("enter:", ch, ",len:", len(ch))
 
 	entering <- ch
 
@@ -77,6 +77,7 @@ func handleConn(conn net.Conn) {
 	//chSth := client(<-ch) //string can not convert to client ?
 	//leaving <- chSth
 
+	fmt.Println("leave: len:", len(ch))
 	leaving <- ch // 当客户端netcat3直接关掉程序时,input.Scan()返回false，由此跳出循环，这里会得到执行
 	fmt.Println("leave:", "" == <-ch, ",input.Scan():", input.Scan())
 	// 当ch里面没有值，还试图拿值，应该是会阻塞，为何这里ch拿出来的是string的零值？这种情况应该是channel被关闭之后，试图在这里拿值才会产生的零值
