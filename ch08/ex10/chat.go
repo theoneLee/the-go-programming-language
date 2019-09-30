@@ -42,10 +42,12 @@ func broadcaster() {
 			for cli := range clients {
 				cli <- msg
 			}
-		case cli := <-entering:
+		case cli, ok := <-entering:
+			fmt.Println("entering goroutine len(entering):", len(entering), " cli:", cli, " ok:", ok)
 			clients[cli] = true
 
-		case cli := <-leaving:
+		case cli, ok := <-leaving:
+			fmt.Println("broadcaster goroutine len(leave):", len(leaving), " cli:", cli, " ok:", ok)
 			delete(clients, cli)
 			close(cli)
 		}
@@ -59,7 +61,7 @@ func handleConn(conn net.Conn) {
 	who := conn.RemoteAddr().String()
 	ch <- "You are " + who
 	messages <- who + " has arrived"
-	fmt.Println("enter:", ch, ",len:", len(ch))
+	//fmt.Println("enter:", ch, ",len:", len(ch))//因为是有一个接收ch消息的goroutine的，因此上面往ch发送时，接收消息的线程以及消费掉了，因此这里打印时没意义的，会一直是0
 
 	entering <- ch
 
@@ -69,6 +71,7 @@ func handleConn(conn net.Conn) {
 			ch <- who + " is " + "exit !"
 			break
 		} else {
+			fmt.Println("ch: len:", len(ch))
 			messages <- who + ": " + input.Text()
 		}
 	}
@@ -79,8 +82,13 @@ func handleConn(conn net.Conn) {
 
 	fmt.Println("leave: len:", len(ch))
 	leaving <- ch // 当客户端netcat3直接关掉程序时,input.Scan()返回false，由此跳出循环，这里会得到执行
-	fmt.Println("leave:", "" == <-ch, ",input.Scan():", input.Scan())
+	fmt.Println("leave1:", "" == <-ch, ",input.Scan():", input.Scan())
+	fmt.Println("leave2:", "" == <-ch, ",input.Scan():", input.Scan())
+	fmt.Println("leave3:", "" == <-ch, ",input.Scan():", input.Scan())
+
 	// 当ch里面没有值，还试图拿值，应该是会阻塞，为何这里ch拿出来的是string的零值？这种情况应该是channel被关闭之后，试图在这里拿值才会产生的零值
+	// 解决这类问题可以进debug模式运行。。
+	// (答案：当客户端中断连接时，clientWriter的goroutine会因网络而关闭ch，而上面关掉程序后input.Scan()返回false，由此跳出循环，leaving从ch拿到一个因ch关闭产生的0值)
 	messages <- who + " has left"
 	conn.Close()
 }
